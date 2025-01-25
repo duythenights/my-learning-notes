@@ -1,0 +1,137 @@
+---
+title: Nodejs - Setup project for beginner
+description: Few steps to create nodejs project with some necessary dependencies!
+---
+
+## 1. Initialize the Project
+
+Navigate to your project folder and run the following commands:
+
+```bash
+npm init -y
+touch server.js
+```
+
+- **`server.js`**: This is where we declare the port and start the server.
+
+### Folder Structure
+
+All other project files will be organized in the `/src` folder. Here’s the structure:
+
+```plaintext
+/src
+  ├── models      # Map to controllers
+  ├── controllers # Handle incoming requests and responses
+  ├── services    # Business logic and reusable service code
+  ├── utils       # Utility functions and classes
+  ├── configs     # Configuration files
+```
+
+## 2. Create `app.js`
+
+Run the following command to create the application file:
+
+```bash
+touch /src/app.js
+```
+
+`app.js` is where middleware is declared and used.
+
+## 3. Install Necessary Dependencies
+
+### Development Dependencies
+
+- **Nodemon**: Automatically restarts the server when changes are detected (not needed for Node.js v18+).
+
+  ```bash
+  npm i -D nodemon
+  ```
+
+  For Node.js v18 or higher, use the `--watch` flag when running the project instead of installing `nodemon`.
+
+- **Morgan**: Logs every user request for better debugging.
+
+  ```bash
+  npm i -D morgan
+  ```
+
+- **Helmet**: Secures your application by adding HTTP headers. It protects against potential attackers who might use tools like `curl --include <yoururl>` to detect the technologies used in your application. For example:
+
+  ```bash
+  curl --include http://localhost:3055
+  ```
+
+  Attackers can use this information to check for known vulnerabilities in those technologies and exploit them.
+
+  - **Analogy**: Helmet is like a helmet for your app—it protects the "head" (headers) from harm.
+
+  ```bash
+  npm i -D helmet
+  ```
+
+### Production Dependencies
+
+- **Express**: Web framework for Node.js.
+
+  ```bash
+  npm i express
+  ```
+
+- **Compression**: Reduces the size of the response data sent to the client, significantly improving performance. For example:
+
+  - A response of **141kB** can be compressed to **1.4kB**.
+  - A response of **1.4MB** can be compressed to just **3.8kB**.
+
+  ```bash
+  npm i compression
+  ```
+
+## 4. Configure `app.js`
+
+In `/src/app.js`, configure the middleware and routes:
+
+```javascript
+const express = require("express");
+const morgan = require("morgan");
+const helmet = require("helmet").default;
+const compression = require("compression");
+
+const app = express();
+
+// Initialize middlewares
+app.use(morgan("dev")); // Modes: dev, combined, common, short, tiny
+app.use(helmet());
+app.use(compression());
+
+// Initialize DB
+
+// Initialize routers
+app.get("/", (req, res, next) => {
+  return res.status(200).json({ message: "Welcome!" });
+});
+
+// Handle errors
+
+module.exports = app;
+```
+
+## 5. Configure `server.js`
+
+In `server.js`, start the server and handle shutdown events:
+
+```javascript
+const app = require("./src/app");
+const PORT = 3055;
+
+const server = app.listen(PORT, () => {
+  console.log(`Server is running on http://localhost:${PORT}`);
+});
+
+// Graceful shutdown on Ctrl+C
+process.on("SIGINT", () => {
+  server.close(() => {
+    console.log("Server closed");
+    process.exit(0);
+  });
+});
+```
