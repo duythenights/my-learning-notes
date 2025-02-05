@@ -1,0 +1,182 @@
+---
+title: Snippet - Reactjs - Antd upload excel with review
+description: Few steps to create nodejs project with some necessary dependencies!
+---
+
+## 📂 `ExcelUpload.tsx`
+
+```tsx
+import React, { useState } from "react";
+import { Upload, Button, Modal, Table, Input, message } from "antd";
+import { UploadOutlined } from "@ant-design/icons";
+import * as XLSX from "xlsx";
+
+interface ExcelUploadProps {
+  value?: string;
+  onChange?: (value: string) => void;
+}
+
+const ExcelUpload: React.FC<ExcelUploadProps> = ({ value, onChange }) => {
+  const [file, setFile] = useState<File | null>(null);
+  const [data, setData] = useState<Record<string, any>[]>([]);
+  const [filteredData, setFilteredData] = useState<Record<string, any>[]>([]);
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [searchText, setSearchText] = useState<string>("");
+
+  const handleFileChange = (info: any) => {
+    const file = info.file.originFileObj as File;
+    setFile(file);
+    readExcel(file);
+    if (onChange) onChange("");
+  };
+
+  const readExcel = (file: File) => {
+    const reader = new FileReader();
+    reader.readAsBinaryString(file);
+    reader.onload = (e) => {
+      if (!e.target) return;
+      const binaryStr = e.target.result as string;
+      const workbook = XLSX.read(binaryStr, { type: "binary" });
+      const sheetName = workbook.SheetNames[0];
+      const sheet = workbook.Sheets[sheetName];
+      const parsedData = XLSX.utils.sheet_to_json(sheet);
+      setData(parsedData);
+      setFilteredData(parsedData);
+      setIsModalOpen(true);
+    };
+  };
+
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.toLowerCase();
+    setSearchText(value);
+    const filtered = data.filter((row) =>
+      Object.values(row).some((cell) =>
+        String(cell).toLowerCase().includes(value)
+      )
+    );
+    setFilteredData(filtered);
+  };
+
+  const handleUpload = async () => {
+    if (!file) {
+      message.error("No file selected");
+      return;
+    }
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+      const result = await response.json();
+      if (result.url) {
+        message.success("File uploaded successfully");
+        if (onChange) onChange(result.url);
+        setIsModalOpen(false);
+        setFile(null);
+        setData([]);
+      } else {
+        throw new Error("Invalid response");
+      }
+    } catch (error) {
+      message.error("Upload failed");
+    }
+  };
+
+  const handleChooseAnotherFile = () => {
+    setFile(null);
+    setData([]);
+    setFilteredData([]);
+    setSearchText("");
+    setIsModalOpen(false);
+    if (onChange) onChange("");
+  };
+
+  const columns = data.length
+    ? Object.keys(data[0]).map((key) => ({
+        title: key,
+        dataIndex: key,
+        key: key,
+      }))
+    : [];
+
+  return (
+    <>
+      <Upload
+        beforeUpload={() => false}
+        showUploadList={false}
+        onChange={handleFileChange}
+      >
+        <Button icon={<UploadOutlined />}>
+          {value ? "Change File" : "Choose File"}
+        </Button>
+      </Upload>
+
+      <Modal
+        title="Preview Data"
+        open={isModalOpen}
+        onCancel={() => setIsModalOpen(false)}
+        footer={[
+          <Upload
+            key="choose"
+            beforeUpload={() => false}
+            showUploadList={false}
+            onChange={handleFileChange}
+          >
+            <Button>Choose Another File</Button>
+          </Upload>,
+          <Button key="upload" type="primary" onClick={handleUpload}>
+            Upload
+          </Button>,
+        ]}
+      >
+        <Input
+          placeholder="Search"
+          value={searchText}
+          onChange={handleSearch}
+          style={{ marginBottom: 10 }}
+        />
+        <Table
+          columns={columns}
+          dataSource={filteredData}
+          pagination={{ pageSize: 5 }}
+          rowKey={(record, index) => index}
+        />
+      </Modal>
+    </>
+  );
+};
+export default ExcelUpload;
+```
+
+## 📂 `ParentComponet.tsx`
+
+```tsx
+import React from "react";
+import { Form, Button } from "antd";
+import ExcelUpload from "./ExcelUpload";
+
+const MyForm = () => {
+  const [form] = Form.useForm();
+
+  const handleSubmit = (values) => {
+    console.log("Form Values:", values);
+  };
+
+  return (
+    <Form form={form} onFinish={handleSubmit}>
+      <Form.Item name={"fileUrl"}>
+        <ExcelUpload />
+      </Form.Item>
+
+      <Button type="primary" htmlType="submit" style={{ marginTop: 16 }}>
+        Submit
+      </Button>
+    </Form>
+  );
+};
+
+export default MyForm;
+```
