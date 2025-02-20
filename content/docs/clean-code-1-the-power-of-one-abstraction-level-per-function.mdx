@@ -1,0 +1,87 @@
+---
+title: Clean code - keep one actraction level per function
+---
+
+When writing code, mixing different levels of abstraction in a single function can make it harder to read and maintain. A clean approach is to keep each function focused on a single level: high-level functions should manage orchestration, while details should be abstracted into smaller helper functions.
+
+Let’s take an example: a component that fetches and displays a user profile.
+
+## A Messy Approach
+
+```jsx
+import { useState, useEffect } from "react";
+
+function UserProfile({ userId }) {
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    fetch(`https://api.example.com/users/${userId}`)
+      .then(res => res.json())
+      .then(data => {
+        const isActive = data.status === "active" && 
+          new Date(data.lastLogin) >= Date.now() - 30 * 24 * 60 * 60 * 1000;
+        
+        setUser({
+          name: `${data.firstName} ${data.lastName}`,
+          email: data.email,
+          isActive,
+        });
+      });
+  }, [userId]);
+
+  if (!user) return <p>Loading...</p>;
+
+  return <p>{user.name} is {user.isActive ? "active" : "inactive"}</p>;
+}
+```
+
+This works, but it’s cluttered with different responsibilities: fetching data, transforming it, and handling UI.
+
+## A Cleaner Approach
+
+```jsx
+function UserProfile({ userId }) {
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    getUser(userId).then(setUser);
+  }, [userId]);
+
+  if (!user) return <Loader />;
+  
+  return <UserDetails user={user} />;
+}
+
+async function getUser(id) {
+  const data = await fetchJson(`https://api.example.com/users/${id}`);
+  return formatUser(data);
+}
+
+function fetchJson(url) {
+  return fetch(url).then(res => res.json());
+}
+
+function formatUser(data) {
+  return {
+    name: `${data.firstName} ${data.lastName}`,
+    email: data.email,
+    isActive: checkActiveStatus(data),
+  };
+}
+
+function checkActiveStatus(user) {
+  return user.status === "active" && new Date(user.lastLogin) >= Date.now() - 30 * 24 * 60 * 60 * 1000;
+}
+```
+
+Now, each function has a clear, singular purpose, making the code easier to read, test, and modify.
+
+## Why This Works Better
+
+- **Easier to read** – The main component reads like a high-level summary.
+- **Better maintainability** – Changes are isolated to small, well-defined functions.
+- **Reusability** – Helper functions like `fetchJson` can be reused elsewhere.
+- **Improved debugging** – Each function is focused, making it easier to pinpoint issues.
+- **Scalability** – Smaller, modular functions help the codebase grow without becoming overwhelming.
+
+Keeping functions at a single abstraction level reduces cognitive load and makes debugging easier. While breaking code into smaller pieces requires navigating multiple functions, it prevents large, tangled components—leading to a cleaner and more scalable codebase.
